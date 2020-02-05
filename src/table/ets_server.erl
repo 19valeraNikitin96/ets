@@ -8,10 +8,10 @@
 %%%-------------------------------------------------------------------
 -module(ets_server).
 -author("erlang").
-
+-include("phone_records.hrl").
 %% API
 -export([setup/1]).
--export([server/0]).
+-export([server/0, summary/1]).
 
 setup(Abonents)->
   Server_PID = spawn(ets_server, server, []),
@@ -22,39 +22,52 @@ setup(Abonents)->
 server()->
   receive
     {setup,Abonents} ->
-      TableID = ets:new(abonents, [duplicate_bag]),
-      put(abonents, TableID),
+      TableID = ets:new(?ABONENTS, [duplicate_bag]),
+      put(?ABONENTS, TableID),
       insertAll(Abonents, TableID),
       server();
     {get,_From,Key} ->
-      io:format("~w~n", [ets:lookup(get(abonents), Key)]),
+      io:format("~w~n", [ets:lookup(get(?ABONENTS), Key)]),
       server();
     {all} ->
-      io:format("~w~n", [ets:tab2list(get(abonents))]),
+      io:format("~w~n", [ets:tab2list(get(?ABONENTS))]),
       server();
     {summary} ->
       io:format("~w~n", [summary()]),
+      server();
+    {summary, Phone} ->
+      io:format("~w~n", [summary(Phone)]),
       server()
   end
 .
 
 summary() ->
-    Abonents = ets:tab2list(get(abonents)),
+    Abonents = ets:tab2list(get(?ABONENTS)),
     summary(Abonents, #{})
-  .
-
+.
+summary(PhoneNumber)->
+  summary(
+    lists:filter(
+      fun(X)->{_,Phone,_,_,_,_} = X, Phone =:= PhoneNumber end,
+      ets:tab2list(get(?ABONENTS))
+    ),
+    #{}
+  )
+.
 summary([], Map) ->Map;
 summary([H|T], Map) ->
-  {abonent, Phone, StartDate, StartTime, EndDate, EndTime } = H,
-  [SYear, SMonth, SDay] = string:split(StartDate, "-", all),
-  [EYear, EMonth, EDay] = (string:split(EndDate, "-", all)),
-  [SHours, SMinutes, SSeconds] = (string:split(StartTime, ":", all)),
-  [EHours, EMinutes, ESeconds] = (string:split(EndTime, ":", all)),
+  {?ABONENT, Phone, StartDate, StartTime, EndDate, EndTime } = H,
+  [SYear, SMonth, SDay, EYear, EMonth, EDay,SHours, SMinutes, SSeconds,EHours, EMinutes, ESeconds] =
+    lists:flatmap(
+        fun(X) -> [list_to_integer(X)] end,
+        lists:flatmap(fun(X)->string:split(X, ?DATE_SEPARATOR, all) end, [StartDate, EndDate])
+          ++
+        lists:flatmap(fun(X)->string:split(X, ?TIME_SEPARATOR, all) end, [StartTime, EndTime])
+    ),
   Seconds =
-%%  TODO optimize converting to integer using function of higher order
-    calendar:datetime_to_gregorian_seconds({{list_to_integer(EYear), list_to_integer(EMonth), list_to_integer(EDay)},{list_to_integer(EHours), list_to_integer(EMinutes), list_to_integer(ESeconds)}}) -
-    calendar:datetime_to_gregorian_seconds({{list_to_integer(SYear), list_to_integer(SMonth), list_to_integer(SDay)},{list_to_integer(SHours), list_to_integer(SMinutes), list_to_integer(SSeconds)}}),
-  case maps:get(Phone, Map, undefined)==undefined of
+    calendar:datetime_to_gregorian_seconds({{EYear, (EMonth), (EDay)},{(EHours), (EMinutes), (ESeconds)}}) -
+    calendar:datetime_to_gregorian_seconds({{(SYear), (SMonth), (SDay)},{(SHours), (SMinutes), (SSeconds)}}),
+  case maps:get(Phone, Map, ?NULL)==?NULL of
     true -> summary(T, maps:put(Phone, Seconds, Map));
     false -> summary(T, maps:put(Phone, Seconds+maps:get(Phone, Map), Map))
   end
