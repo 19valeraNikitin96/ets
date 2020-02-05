@@ -54,15 +54,15 @@ summary(PhoneNumber)->
     #{}
   )
 .
-summary([], Map) ->Map;
+summary([], Map) -> maps:to_list(Map);
 summary([H|T], Map) ->
   {?ABONENT, Phone, StartDate, StartTime, EndDate, EndTime } = H,
   [SYear, SMonth, SDay, EYear, EMonth, EDay,SHours, SMinutes, SSeconds,EHours, EMinutes, ESeconds] =
     lists:flatmap(
         fun(X) -> [list_to_integer(X)] end,
-        lists:flatmap(fun(X)->string:split(X, ?DATE_SEPARATOR, all) end, [StartDate, EndDate])
+        lists:flatmap(fun(X) -> string:split(X, ?DATE_SEPARATOR, all) end, [StartDate, EndDate])
           ++
-        lists:flatmap(fun(X)->string:split(X, ?TIME_SEPARATOR, all) end, [StartTime, EndTime])
+        lists:flatmap(fun(X) -> string:split(X, ?TIME_SEPARATOR, all) end, [StartTime, EndTime])
     ),
   Seconds =
     calendar:datetime_to_gregorian_seconds({{EYear, (EMonth), (EDay)},{(EHours), (EMinutes), (ESeconds)}}) -
