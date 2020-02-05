@@ -37,7 +37,8 @@ server()->
       server();
     {summary, Phone} ->
       io:format("~w~n", [summary(Phone)]),
-      server()
+      server();
+    {delete} -> ets:delete(get(?ABONENTS))
   end
 .
 
